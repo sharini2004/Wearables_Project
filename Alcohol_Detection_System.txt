@@ -1,0 +1,112 @@
+#include <Adafruit_LiquidCrystal.h>
+
+
+#define SEATBELT_PIN 2  // Seatbelt switch
+#define CAR_KEY_PIN 3   // Car key switch
+#define RED_LED_PIN 4   // Alcohol detected state
+#define GREEN_LED_PIN 5 // Motor ON state
+#define ORANGE_LED_PIN 6 // Normal state
+#define BUZZER_PIN 7    // Alcohol detected alarm
+#define MOTOR_PIN 8     // Motor control
+#define ALCOHOL_SENSOR_PIN A0 // Alcohol sensor
+
+//LiquidCrystal_I2C lcd(0x27, 16, 2); // Adjust for your I2C address
+Adafruit_LiquidCrystal lcd(0);
+int alcoholThreshold = 300; // Define alcohol level threshold
+
+void setup() {
+  pinMode(SEATBELT_PIN, INPUT_PULLUP);
+  pinMode(CAR_KEY_PIN, INPUT_PULLUP);
+  pinMode(RED_LED_PIN, OUTPUT);
+  pinMode(GREEN_LED_PIN, OUTPUT);
+  pinMode(ORANGE_LED_PIN, OUTPUT);
+  pinMode(BUZZER_PIN, OUTPUT);
+  pinMode(MOTOR_PIN, OUTPUT);
+
+  lcd.begin(16, 2); // Initialize LCD with 16 columns and 2 rows
+  lcd.setBacklight(1);
+  Serial.begin(9600); // Initialize Serial Monitor
+  lcd.setCursor(0, 0);
+  lcd.print("Initializing...");
+  Serial.println("Initializing system...");
+  delay(2000);
+  lcd.clear();
+}
+
+void loop() {
+  int seatbeltOn = digitalRead(SEATBELT_PIN); // LOW = Seatbelt ON
+  int carKeyOn = digitalRead(CAR_KEY_PIN);   // LOW = Car key ON
+  int alcoholLevel = analogRead(ALCOHOL_SENSOR_PIN); // Read alcohol level
+
+  if (seatbeltOn==0) {
+    // System is inactive if seatbelt is not ON
+    lcd.setCursor(0, 0);
+    lcd.print("Seatbelt: OFF   ");
+    lcd.setCursor(0, 1);
+    lcd.print("System Inactive ");
+    
+    Serial.println("Seatbelt: OFF | System Inactive");
+    digitalWrite(RED_LED_PIN, LOW);
+    digitalWrite(GREEN_LED_PIN, LOW);
+    digitalWrite(ORANGE_LED_PIN, LOW);
+    digitalWrite(BUZZER_PIN, LOW);
+    digitalWrite(MOTOR_PIN, LOW);
+    return; // Exit loop until seatbelt is ON
+  }
+
+  // System activated
+  lcd.setCursor(0, 0);
+  lcd.print("Seatbelt: ON    ");
+  lcd.setCursor(0, 1);
+  lcd.print("Alcohol: ");
+  lcd.print(alcoholLevel);
+
+  Serial.print("Seatbelt: ON | Alcohol Level: ");
+  Serial.println(alcoholLevel);
+
+  if (alcoholLevel > alcoholThreshold) {
+    // Alcohol detected
+    digitalWrite(RED_LED_PIN, HIGH); // Blink red LED
+    digitalWrite(GREEN_LED_PIN, LOW);
+    digitalWrite(ORANGE_LED_PIN, LOW);
+    digitalWrite(BUZZER_PIN, HIGH); // Activate buzzer
+    digitalWrite(MOTOR_PIN, HIGH);  // Motor OFF
+
+    lcd.setCursor(0, 1);
+    lcd.print("Detected:MotorOFF");
+    Serial.println("Alcohol Detected: Motor OFF");
+
+    delay(500); // Blink effect
+    digitalWrite(RED_LED_PIN, LOW);
+    delay(500);
+  } else {
+    digitalWrite(BUZZER_PIN, LOW); // Buzzer OFF
+    if (carKeyOn==1) {
+      // Motor ON if all conditions satisfied
+      digitalWrite(GREEN_LED_PIN, HIGH); // Blink green LED
+      digitalWrite(RED_LED_PIN, LOW);
+      digitalWrite(ORANGE_LED_PIN, LOW);
+      digitalWrite(MOTOR_PIN, LOW); // Motor ON
+
+      lcd.setCursor(0, 1);
+      lcd.print("All OK: Motor ON");
+      Serial.println("All Conditions OK: Motor ON");
+      delay(500); // Blink effect
+      digitalWrite(GREEN_LED_PIN, LOW);
+      delay(500);
+    } else {
+      // Normal state but motor not started
+      digitalWrite(ORANGE_LED_PIN, HIGH); // Blink orange LED
+      digitalWrite(RED_LED_PIN, LOW);
+      digitalWrite(GREEN_LED_PIN, LOW);
+      digitalWrite(MOTOR_PIN, HIGH); // Motor OFF
+
+      lcd.setCursor(0, 1);
+      lcd.print("Check: Motor OFF");
+      Serial.println("Normal State: Check Conditions, Motor OFF");
+      delay(500); // Blink effect
+      digitalWrite(ORANGE_LED_PIN, LOW);
+      delay(500);
+    }
+  }
+}
